@@ -1,0 +1,13 @@
+{
+  "name": "steam-url",
+  "version": "1.0.0",
+  "description": "Um script para conseguir url's -com poucos caracteres- não usadas na Steam.",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [steam, url, api, checker],
+  "author": "specz",
+  "license": "apache 2.0",
+  "dependencies": {
+    "steamapi": "^2.1.3"
+  }
+}
