@@ -1,48 +1,63 @@
-const APIsteam = require('steamapi');
-const config = require('./config.json');
-const usuario = new APIsteam(config.KeySteam);
+const qs = require('querystring')
+const fetch = (...args) =>
+  import('node-fetch').then(({ default: fetch }) => fetch(...args))
+const chalk = require('chalk')
 
-var Tentativas = 0;
-let checados = [];
+const Status = {
+	SUCCESS: 1,
+	NO_MATCH: 42
+}
 
-var nome = () => {
-    var resultado = '';
-    var caracteres = 'abcdefghijklmnopqrstuvwxyz-_1234567890';
-    for (var i = 0; i < config.caracteres; i++)
-        resultado += caracteres.charAt(Math.floor(Math.random() * 38));
+const checked = []
 
-    if (checados.indexOf(resultado) == -1)
-        checados.push(resultado);
-    else {
-        Tentativas++;
-        if (Tentativas > config.loops)  
-          checados = [], Tentativas = 0;
+const randomChars = (length = 3) => {
+  let result = ''
+  const chars = 'abcdefghijklmnopqrstuvwxyz-_1234567890'
 
-        return 0;
-    }
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
 
-    return resultado;
-};
+  if (!checked.includes(result)) {
+    checked.push(result)
+  } else if (Math.pow(chars.length, length) !== checked.length) {
+    result = randomChars()
+  } else {
+    // Send available for Discord
+    process.exit(1)
+  }
 
-setInterval(() => {
-    let n = nome();
-    if (!n)
-        return;
+  return result
+}
 
-    usuario.resolve(n).then(id => {
-        console.log(`\x1B[1m[ \x1B[31mF\x1B[37m ]\x1B[3m já usada: ${n}.`)
-    }).catch(e => {
-        switch (e.message) {
-            case "Forbidden":
-                console.log("\x1B[1m[ \x1B[33mERRO\x1B[37m ]\x1B[3m API zoada");
-                break;
-            case "No match":
-                console.log(`\x1B[1m[ \x1B[32mFÁCIL\x1B[37m ]\x1B[3m PEGA LOGO: ${n}.`);
-                process.exit(0);
-                break;
-            default:
-                console.log(`\x1B[1m[ \x1b[36mUNKNOWN\x1B[37m ]\x1B[3m ${e.message}.`);
-                break;
-        }
-    });
-}, config.tempoMS);
+setTimeout(async function nested() {
+  let chars = randomChars()
+
+  try {
+    const response = await fetch(
+      `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1?${qs.stringify(
+        { key: process.env.STEAM_API_KEY, vanityurl: chars }
+      )}`
+    )
+		const { response: data } = await (
+			response.ok
+				? response.json()
+				: Promise.reject(response.statusText)
+			)
+
+		switch (data.success) {
+			case Status.SUCCESS:
+				console.log(`${checked.length} :: ${chalk.black.bgWhite(chars)} used by ${chalk.bgRed(data.steamid)}`)
+				break
+			case Status.NO_MATCH:
+				console.log(`${checked.length} :: ${chalk.bgGreen(chars)} ${chalk.green('is available!')}`)
+				break
+			default:
+				throw new Error(data.message)
+			}
+  } catch (error) {
+		console.error(error.message)
+  }
+
+  setTimeout(nested, 3 * 1e3)
+}, 1e3)
